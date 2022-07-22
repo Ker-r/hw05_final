@@ -1,5 +1,3 @@
-import random
-
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -94,39 +92,57 @@ class PostViewsTest(TestCase):
         self.assertNotEqual(old_posts, new_posts)
 
 
-class PaginatorViewsTest(TestCase):
+LIMIT_POST = 13
+
+
+class PaginatorTest(TestCase):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.user = User.objects.create_user(username='test_user')
+        cls.user = User.objects.create_user(username='auth')
         cls.group = Group.objects.create(
             title='Тестовая группа',
-            slug='test-slug',
+            slug='test_slug',
             description='Тестовое описание',
         )
-        objs = [
-            Post(
+        for post in range(LIMIT_POST):
+            cls.post = Post.objects.create(
                 author=cls.user,
-                text='Тестовая пост',
-                group=cls.group
+                group=cls.group,
+                text='text'
             )
-            for i in range(settings.PAGE + random.randrange(9))
-        ]
-        cls.posts = Post.objects.bulk_create(objs)
 
-    def test_paginator(self):
-        all_posts = len(self.posts)
-        all_posts %= settings.PAGE
-        reverse_dict = {
-            reverse('posts:index'): settings.PAGE,
-            (reverse('posts:index')) + '?page=2': all_posts,
-            PROFILE: settings.PAGE,
-            PROFILE + '?page=2': all_posts,
-            GROUP_LIST: settings.PAGE,
-            GROUP_LIST + '?page=2': all_posts,
-        }
-        for value, expected in reverse_dict.items():
-            with self.subTest(value=value):
-                self.assertEqual(
-                    len(self.client.get(value).context['page_obj']), expected
-                )
+    def setUp(self):
+        self.follower = User.objects.create_user(username='follower')
+        self.follower_client = Client()
+        self.follower_client.force_login(self.follower)
+        self.follower_client.get(
+            reverse(
+                'posts:profile_follow',
+                args=(self.user.username,)
+            ),
+            follow=True
+        )
+
+    def test_count_post(self):
+        urls = (
+            ('posts:index', None,),
+            ('posts:group_list', (self.group.slug,),),
+            ('posts:profile', (self.user.username,),),
+            ('posts:follow_index', None,),
+        )
+        pages = (
+            ('?page=1', settings.PAGE,),
+            ('?page=2', LIMIT_POST - settings.PAGE,),
+        )
+        for name, args in urls:
+            with self.subTest(name=name):
+                for page, quantity in pages:
+                    with self.subTest(page=page):
+                        response = self.follower_client.get(
+                            reverse(name, args=args) + page
+                        )
+                        self.assertEqual(
+                            len(response.context.get('page_obj').object_list),
+                            quantity
+                        )
