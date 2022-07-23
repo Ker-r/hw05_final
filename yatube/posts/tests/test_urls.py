@@ -45,10 +45,16 @@ class PostURLTests(TestCase):
                 response = self.guest_client.get(address)
                 self.assertEqual(response.status_code, status)
 
-    def test_create_url_exists_at_desired_location(self):
-        """Страница /create/ доступна авторизованному пользователю."""
-        response = self.authorized_author.get('/create/')
-        self.assertEqual(response.status_code, HTTPStatus.OK)
+    def test_create_follow_url_exists_at_desired_location(self):
+        """Страницы доступна авторизованному пользователю."""
+        urls_name = {
+            '/create/': HTTPStatus.OK,
+            '/follow/': HTTPStatus.OK,
+        }
+        for address, status in urls_name.items():
+            with self.subTest(address=address):
+                response = self.authorized_author.get(address)
+                self.assertEqual(response.status_code, status)
 
     def test_urls_uses_correct_template(self):
         """URL-адрес использует соответствующий шаблон."""

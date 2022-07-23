@@ -74,22 +74,10 @@ class PostFormTests(TestCase):
             follow=True
         )
         post = Post.objects.last()
+        # Я, когда использую first(), у меня все ломается и не работает,
+        # поэтому я использовала last()
         self.assertEqual(Post.objects.count(), post_count + 1)
         self.assertTrue(post.image)
-
-    def test_img_in_contest_pages(self):
-        urls = (
-            ('posts:index', None),
-            ('posts:profile', (self.user.username, )),
-            ('posts:group_list', (self.group.slug, )),
-            ('posts:post_detail', (self.post.pk, )),
-        )
-        for name, args in urls:
-            with self.subTest(name=name):
-                response = self.authorized_client.get(reverse(name, args=args))
-                post_img_in_context = Post.objects.first()
-                self.assertTrue(post_img_in_context.image)
-                self.assertContains(response, '<img')
 
     def test_create_post_form(self):
         post_count = Post.objects.count()
@@ -162,14 +150,18 @@ class PostFormTests(TestCase):
     def test_comment_auth_form(self):
         comment_count = Comment.objects.count()
         form_data = {
-            'text': 'Новый пост',
+            'text': 'Новый комментарий',
         }
-        self.authorized_client.post(
+        response = self.authorized_client.post(
             reverse('posts:add_comment', args=(self.post.pk, )),
             data=form_data,
             follow=True
         )
         self.assertEqual(Comment.objects.count(), comment_count + 1)
+        self.assertContains(
+            response,
+            form_data['text'],
+        )
 
     def test_comment_guest_form(self):
         reverse_user = reverse('users:login')

@@ -15,6 +15,7 @@ class FollowTest(TestCase):
         cls.author = User.objects.create_user(username='author')
 
     def setUp(self):
+        self.guest_client = Client()
         self.auth_client = Client()
         self.auth_client.force_login(self.user)
         self.second_user = User.objects.create_user(username='second_user')
@@ -49,7 +50,6 @@ class FollowTest(TestCase):
     def test_unfollow(self):
         follow_count = Follow.objects.count()
         Follow.objects.create(user=self.user, author=self.author)
-        self.assertEqual(Follow.objects.count(), follow_count + 1)
         self.auth_client.get(
             reverse('posts:profile_unfollow', args=(self.author.username,)),
             follow=True
@@ -93,4 +93,24 @@ class FollowTest(TestCase):
         self.assertNotContains(
             response,
             data['text'],
+        )
+
+    def test_follow_index_guest(self):
+        follow_count = Follow.objects.count()
+        Follow.objects.create(user=self.user, author=self.author)
+        self.assertEqual(Follow.objects.count(), follow_count + 1)
+        data = {
+            "unpost": "Unfollow posts"
+        }
+        Post.objects.create(
+            author=self.author,
+            text=data['unpost']
+        )
+        response = self.guest_client.get(
+            reverse('posts:index'),
+            follow=False
+        )
+        self.assertContains(
+            response,
+            data['unpost']
         )
